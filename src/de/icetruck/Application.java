@@ -1,6 +1,8 @@
 package de.icetruck;
 
 import java.awt.Dimension;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
@@ -12,7 +14,6 @@ import java.util.List;
 import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JList;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -28,8 +29,10 @@ public class Application extends JFrame implements WindowListener {
 	private ChatListModel chatListModel;
 	private Client client;
 	private Thread clientThread;
+	private JList chatListView;
+	private JScrollPane listViewPanel;
 	public static final int maxLineCount = 100;
-	
+
 	class User {
 		private String name_;
 		public User(String name) {
@@ -84,7 +87,7 @@ public class Application extends JFrame implements WindowListener {
 		public void removeListDataListener(ListDataListener l) {
 			listeners.remove(l);
 		}
-		public void add(String line) {
+		public synchronized void add(String line) {
 			chatList.add(line);
 			Iterator<ListDataListener> i = listeners.iterator();
 			while(i.hasNext()) {
@@ -121,7 +124,7 @@ public class Application extends JFrame implements WindowListener {
 		public void keyTyped(KeyEvent e) {}
 	}
 
-	public synchronized void addChatLine(String line) {
+	public void addChatLine(String line) {
 		chatListModel.add(line);
 	}
 
@@ -144,8 +147,13 @@ public class Application extends JFrame implements WindowListener {
 		centerView.setLayout(new BoxLayout(centerView, BoxLayout.Y_AXIS));
 
 		chatListModel = new ChatListModel();
-		JList listView = new JList(chatListModel);
-		JScrollPane listViewPanel = new JScrollPane(listView);
+		chatListView = new JList(chatListModel);
+		listViewPanel = new JScrollPane(chatListView);
+		listViewPanel.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {  
+	        public void adjustmentValueChanged(AdjustmentEvent e) {  
+	            e.getAdjustable().setValue(e.getAdjustable().getMaximum());  
+	        }
+	    });
 		centerView.add(listViewPanel);
 		SendView sendView = new SendView();
 		centerView.add(sendView);
