@@ -1,8 +1,11 @@
 package de.icetruck;
 
 import java.awt.Dimension;
-import java.awt.event.AdjustmentEvent;
-import java.awt.event.AdjustmentListener;
+import java.awt.Menu;
+import java.awt.MenuBar;
+import java.awt.MenuItem;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
@@ -33,6 +36,7 @@ public class Application extends JFrame implements WindowListener {
 	private Thread clientThread;
 	private JList chatListView;
 	private JScrollPane listViewPanel;
+	private List<UserNameChangeListener> userNameChangeListeners;
 	private boolean autoscroll_ = true;
 	public static final int maxLineCount = 100;
 
@@ -49,6 +53,9 @@ public class Application extends JFrame implements WindowListener {
 		}
 		public String getName() {
 			return name_;
+		}
+		public void setName(String newname) {
+			name_ = newname;
 		}
 	}
 	class UserListModel implements ListModel {
@@ -112,6 +119,22 @@ public class Application extends JFrame implements WindowListener {
 			while(i.hasNext()) {
 				ListDataListener l = i.next();
 				l.intervalRemoved(new ListDataEvent(this, ListDataEvent.INTERVAL_REMOVED, userindex, userindex));
+			}
+		}
+		public synchronized void rename(int userid, String newname) {
+			Iterator<User> i = userList.iterator();
+			int n = -1;
+			while(i.hasNext()) {
+				++n;
+				User u = i.next();
+				if (u.getId() == userid) {
+					u.setName(newname);
+					Iterator<ListDataListener> l = listeners.iterator();
+					while(l.hasNext()) {
+						l.next().contentsChanged(new ListDataEvent(this, ListDataEvent.CONTENTS_CHANGED, n, n));
+					}
+					break;
+				}
 			}
 		}
 	}
@@ -208,9 +231,27 @@ public class Application extends JFrame implements WindowListener {
 			if (user_.getId() != u.getId()) {
 				addUser(u);
 			}
+		} else if (cmd.equalsIgnoreCase("NAMEOK")) {
+			Iterator<UserNameChangeListener> i = userNameChangeListeners.iterator();
+			while(i.hasNext()) {
+				i.next().onUserNameOk();
+			}
+			userNameChangeListeners.clear();
+		} else if (cmd.equalsIgnoreCase("NAMEFAIL")) {
+			Iterator<UserNameChangeListener> i = userNameChangeListeners.iterator();
+			while(i.hasNext()) {
+				i.next().onUserNameFailed();
+			}
+			userNameChangeListeners.clear();
 		} else if (cmd.equalsIgnoreCase("LEAVE")) {
 			int uid = Integer.parseInt(c.getParamLine());
 			delUser(uid);
+		} else if (cmd.equalsIgnoreCase("NAMECHANGE")) {
+			int userid = Integer.parseInt(c.getSubCommand());
+			String oldname = userListModel.findName(userid);
+			String newname = c.getParamLine();
+			userListModel.rename(userid, newname);
+			addChatLine("== '" + oldname + "' is now called '" + newname + "'");
 		} else if (cmd.equalsIgnoreCase("USERLIST")) {
 			String line = c.getParamLine();
 			String[] users = line.split(" ");
@@ -223,7 +264,7 @@ public class Application extends JFrame implements WindowListener {
 	}
 
 	public String getHost() {
-		return "icetruck.de";
+		return "localhost";
 	}
 	public int getPort() {
 		return 12321;
@@ -234,6 +275,8 @@ public class Application extends JFrame implements WindowListener {
 	}
 
 	Application() {
+		userNameChangeListeners = new LinkedList<UserNameChangeListener>();
+
 		chatList = new LinkedList<String>();
 		setSize(800, 600);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -242,6 +285,19 @@ public class Application extends JFrame implements WindowListener {
 		userList = new LinkedList<User>();
 		userListModel = new UserListModel();
 		JList userListView = new JList(userListModel);
+		
+		MenuBar menuBar = new MenuBar();
+		Menu menuSettings = new Menu("Settings");
+		MenuItem menuUserSettings = new MenuItem("Open user settings");
+		menuUserSettings.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				UserSettings.showSettings();
+			}
+		});
+		menuSettings.add(menuUserSettings);
+		menuBar.add(menuSettings);
+		setMenuBar(menuBar);
 
 		new JScrollPane(userListView);
 
@@ -299,4 +355,9 @@ public class Application extends JFrame implements WindowListener {
 
 	@Override
 	public void windowOpened(WindowEvent e) { }
+
+	public void setUserName(UserNameChangeListener uncl, String username) {
+		userNameChangeListeners.add(uncl);
+		client.send("NEWNAME", username);
+	}
 }

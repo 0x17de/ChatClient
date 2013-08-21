@@ -23,15 +23,19 @@ public class Client implements Runnable {
 	public void setRunning(boolean running) {
 		running_ = running;
 	}
-	
-	public void sendMessage(String msg) {
+
+	public void send(String cmd, String data) {
 		try {
 			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(s_.getOutputStream()));
-			writer.write("MSG " + msg.replace(";", "\\;") + ";");			
+			writer.write(cmd + " " + data.replace(";", "\\;") + ";");			
 			writer.flush();
 		} catch(IOException e) {
 			return;
 		}
+	}
+	
+	public void sendMessage(String msg) {
+		send("MSG", msg);
 	}
 	
 	@Override
@@ -72,7 +76,7 @@ public class Client implements Runnable {
 					int cmdend = line.indexOf(" ".charAt(0));
 					String cmd = line.substring(0, cmdend);
 
-					c = new Command(cmd, line.substring(cmdend + 1, line.lastIndexOf(";")).replace("\\\\", "\\"));
+					c = new Command(cmd, line.substring(cmdend + 1, line.lastIndexOf(";")).replace("\\\\", "\\").replace("\\;", ";"));
 				} catch(StringIndexOutOfBoundsException e) {
 					
 				}
