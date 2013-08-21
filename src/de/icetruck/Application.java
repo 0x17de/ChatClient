@@ -157,7 +157,7 @@ public class Application extends JFrame implements WindowListener {
 			if (e.getKeyCode() == KeyEvent.VK_ENTER) {
 				String text = getText();
 				setText("");
-				client.sendMessage(text);
+				client.sendMessage(text.replace("\\", "\\\\"));
 			}
 		}
 		@Override

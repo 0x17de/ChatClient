@@ -7,6 +7,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.JOptionPane;
 
@@ -55,9 +57,12 @@ public class Client implements Runnable {
 		while(running_) {
 			try {
 				String line = "";
+				Pattern p = Pattern.compile("^.*[^\\\\](\\\\)*;$");
+				Matcher m;
 				do {
 					line += reader.readLine();
-				} while(line.endsWith("\\;") || !line.endsWith(";"));
+					m = p.matcher(line);
+				} while(!m.find());
 				// Application.getInstance().addChatLine(line);
 				
 				System.out.println(line.replace(" ", "~"));
@@ -67,7 +72,7 @@ public class Client implements Runnable {
 					int cmdend = line.indexOf(" ".charAt(0));
 					String cmd = line.substring(0, cmdend);
 
-					c = new Command(cmd, line.substring(cmdend + 1, line.lastIndexOf(";")));
+					c = new Command(cmd, line.substring(cmdend + 1, line.lastIndexOf(";")).replace("\\\\", "\\"));
 				} catch(StringIndexOutOfBoundsException e) {
 					
 				}
