@@ -33,6 +33,7 @@ public class Application extends JFrame implements WindowListener {
 	private Thread clientThread;
 	private JList chatListView;
 	private JScrollPane listViewPanel;
+	private boolean autoscroll_ = true;
 	public static final int maxLineCount = 100;
 
 	class User {
@@ -167,6 +168,7 @@ public class Application extends JFrame implements WindowListener {
 
 	public void addChatLine(String line) {
 		chatListModel.add(line);
+		chatListView.ensureIndexIsVisible(chatList.size()-1);
 	}
 
 	public void addUser(User u) {
@@ -249,11 +251,12 @@ public class Application extends JFrame implements WindowListener {
 		chatListModel = new ChatListModel();
 		chatListView = new JList(chatListModel);
 		listViewPanel = new JScrollPane(chatListView);
-		listViewPanel.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {  
-	        public void adjustmentValueChanged(AdjustmentEvent e) {  
-	            e.getAdjustable().setValue(e.getAdjustable().getMaximum());  
+		/* listViewPanel.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
+	        public void adjustmentValueChanged(AdjustmentEvent e) {
+	        	if (autoscroll_)
+	        		e.getAdjustable().setValue(e.getAdjustable().getMaximum());
 	        }
-	    });
+	    }); */
 		centerView.add(listViewPanel);
 		SendView sendView = new SendView();
 		centerView.add(sendView);
