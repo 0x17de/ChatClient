@@ -264,7 +264,7 @@ public class Application extends JFrame implements WindowListener {
 	}
 
 	public String getHost() {
-		return "localhost";
+		return "icetruck.de";
 	}
 	public int getPort() {
 		return 12321;
