@@ -25,18 +25,26 @@ import javax.swing.event.ListDataListener;
 public class Application extends JFrame implements WindowListener {
 	private static Application app;
 	private static List<User> userList;
+	private UserListModel userListModel;
 	private List<String> chatList;
 	private ChatListModel chatListModel;
 	private Client client;
+	private User user_;
 	private Thread clientThread;
 	private JList chatListView;
 	private JScrollPane listViewPanel;
 	public static final int maxLineCount = 100;
 
 	class User {
+		private int id_;
 		private String name_;
-		public User(String name) {
+
+		public User(int id, String name) {
+			id_ = id;
 			name_ = name;
+		}
+		public int getId() {
+			return id_;
 		}
 		public String getName() {
 			return name_;
@@ -54,7 +62,7 @@ public class Application extends JFrame implements WindowListener {
 		}
 		@Override
 		public Object getElementAt(int index) {
-			return userList.get(index);
+			return userList.get(index).getName();
 		}
 		@Override
 		public int getSize() {
@@ -63,6 +71,47 @@ public class Application extends JFrame implements WindowListener {
 		@Override
 		public void removeListDataListener(ListDataListener l) {
 			listeners.remove(l);
+		}
+		
+		public String findName(int id) {
+			Iterator<User> i = userList.iterator();
+			while (i.hasNext()) {
+				User u = i.next();
+				if (u.getId() == id)
+					return u.getName();
+			}
+			return null;
+		}
+
+		public synchronized void add(User u) {
+			userList.add(u);
+			Iterator<ListDataListener> i = listeners.iterator();
+			while(i.hasNext()) {
+				i.next().intervalAdded(new ListDataEvent(this, ListDataEvent.INTERVAL_ADDED, userList.size()-1, userList.size()-1));
+			}
+		}
+
+		public void del(int id) {
+			Iterator<User> ui = userList.iterator();
+			int userindex = -1;
+			boolean found = false;
+			while(ui.hasNext()) {
+				++userindex;
+				User u = ui.next();
+				if (u.getId() == id) {
+					found = true;
+					userList.remove(userindex);
+					break;
+				}
+			}
+			if (!found)
+				return;
+			
+			Iterator<ListDataListener> i = listeners.iterator();
+			while(i.hasNext()) {
+				ListDataListener l = i.next();
+				l.intervalRemoved(new ListDataEvent(this, ListDataEvent.INTERVAL_REMOVED, userindex, userindex));
+			}
 		}
 	}
 	class ChatListModel implements ListModel {
@@ -91,15 +140,7 @@ public class Application extends JFrame implements WindowListener {
 			chatList.add(line);
 			Iterator<ListDataListener> i = listeners.iterator();
 			while(i.hasNext()) {
-				ListDataListener l = i.next();
-				l.intervalAdded(new ListDataEvent(this, ListDataEvent.INTERVAL_ADDED, chatList.size()-1, chatList.size()-1));
-			}
-		}
-		public void update() {
-			Iterator<ListDataListener> i = listeners.iterator();
-			while(i.hasNext()) {
-				ListDataListener l = i.next();
-				l.contentsChanged(new ListDataEvent(this, ListDataEvent.CONTENTS_CHANGED, 0, chatList.size()));
+				i.next().intervalAdded(new ListDataEvent(this, ListDataEvent.INTERVAL_ADDED, chatList.size()-1, chatList.size()-1));
 			}
 		}
 	}
@@ -128,6 +169,64 @@ public class Application extends JFrame implements WindowListener {
 		chatListModel.add(line);
 	}
 
+	public void addUser(User u) {
+		userListModel.add(u);
+		addChatLine("== User joined: " + u.getName());
+	}
+
+	public void delUser(int id) {
+		addChatLine("== User left: " + userListModel.findName(id));
+		userListModel.del(id); 
+	}
+
+	public User userFromString(String s) {
+		int splitter = s.indexOf(":".charAt(0));
+		int id = Integer.parseInt(s.substring(0, splitter));
+		String name = s.substring(splitter + 1);
+		return new User(id, name);
+	}
+	
+	public void addCommand(Command c) {
+		String cmd = c.getCommand();
+		if (cmd.equalsIgnoreCase("MSG")) { // TODO user dependent
+			String subcmd = c.getSubCommand();
+			String username = null;
+			if (subcmd != null) {
+				username = userListModel.findName(Integer.parseInt(subcmd));
+			}
+			if (username == null) {
+				username = "System";
+			}
+			addChatLine(username + ": " + c.getParamLine());
+		} else if (cmd.equalsIgnoreCase("HELLO")) {
+			user_ = userFromString(c.getParamLine());
+		} else if (cmd.equalsIgnoreCase("JOIN")) {
+			User u = userFromString(c.getParamLine());
+			System.out.println("User: " + u.getId());
+			if (user_.getId() != u.getId()) {
+				addUser(u);
+			}
+		} else if (cmd.equalsIgnoreCase("LEAVE")) {
+			int uid = Integer.parseInt(c.getParamLine());
+			delUser(uid);
+		} else if (cmd.equalsIgnoreCase("USERLIST")) {
+			String line = c.getParamLine();
+			String[] users = line.split(" ");
+			for(int i = 0; i < users.length; ++i) {
+				addUser(userFromString(users[i]));
+			}
+		} else {
+			addChatLine("UnknownCMD: " + cmd);
+		}
+	}
+
+	public String getHost() {
+		return "icetruck.de";
+	}
+	public int getPort() {
+		return 12321;
+	}
+
 	public static Application getInstance() {
 		return app;
 	}
@@ -139,8 +238,9 @@ public class Application extends JFrame implements WindowListener {
 		setLayout(new BoxLayout(getContentPane(), BoxLayout.X_AXIS));
 		
 		userList = new LinkedList<User>();
-		JList userListView = new JList(new UserListModel());
-		
+		userListModel = new UserListModel();
+		JList userListView = new JList(userListModel);
+
 		new JScrollPane(userListView);
 
 		JPanel centerView = new JPanel();

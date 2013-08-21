@@ -36,12 +36,12 @@ public class Client implements Runnable {
 	public void run() {
 		Application.getInstance().addChatLine("Connecting...");
 		try {
-			s_ = new Socket("localhost", 12321);
+			s_ = new Socket(Application.getInstance().getHost(), Application.getInstance().getPort());
 		} catch(UnknownHostException e) {
-			JOptionPane.showMessageDialog(Application.getInstance(), "Unknown host.");
+			JOptionPane.showMessageDialog(Application.getInstance(), "Unknown host (" + Application.getInstance().getHost() + ").");
 			return;
 		} catch(IOException e) {
-			JOptionPane.showMessageDialog(Application.getInstance(), "Could not connect to server.");
+			JOptionPane.showMessageDialog(Application.getInstance(), "Could not connect to server (" + Application.getInstance().getHost() + ":" + Application.getInstance().getPort() + ").");
 			return;
 		}
 		BufferedReader reader;
@@ -54,16 +54,25 @@ public class Client implements Runnable {
 		}
 		while(running_) {
 			try {
-				String line = reader.readLine();
-				Application.getInstance().addChatLine(line);
+				String line = "";
+				do {
+					line += reader.readLine();
+				} while(line.endsWith("\\;") || !line.endsWith(";"));
+				// Application.getInstance().addChatLine(line);
 				
-				int cmdend = line.indexOf(" ".charAt(0));
-				int subcmdend = line.indexOf(":".charAt(0));
-				if (cmdend < 0)
-					return;
-				int firstbr = (subcmdend >= 0 && subcmdend < cmdend) ? subcmdend : cmdend;
-				String cmd = line.substring(0, firstbr);
-				Application.getInstance().addChatLine(cmd);
+				System.out.println(line.replace(" ", "~"));
+
+				Command c = null;
+				try {
+					int cmdend = line.indexOf(" ".charAt(0));
+					String cmd = line.substring(0, cmdend);
+
+					c = new Command(cmd, line.substring(cmdend + 1, line.lastIndexOf(";")));
+				} catch(StringIndexOutOfBoundsException e) {
+					
+				}
+				Application.getInstance().addCommand(c);
+				// Application.getInstance().addChatLine(cmd);
 			} catch (IOException e) {
 				JOptionPane.showMessageDialog(Application.getInstance(), "Broken pipe");
 				return;
